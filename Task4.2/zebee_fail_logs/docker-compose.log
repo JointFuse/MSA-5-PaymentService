@@ -1,0 +1,11 @@
+[+] Running 9/9
+ ✔ Network task42_camunda-platform    Created                                                                                                                                                                0.0s 
+ ✔ Volume "task42_zeebe"              Created                                                                                                                                                                0.0s 
+ ✔ Volume "task42_elastic"            Created                                                                                                                                                                0.0s 
+ ✔ Container elasticsearch            Started                                                                                                                                                                0.4s 
+ ✘ Container zeebe                    Error                                                                                                                                                                151.5s 
+ ✔ Container tasklist                 Started                                                                                                                                                                0.6s 
+ ✔ Container task42-worker-1          Started                                                                                                                                                                0.6s 
+ ✔ Container task42-deploy-process-1  Created                                                                                                                                                                0.1s 
+ ✔ Container operate                  Started                                                                                                                                                                0.6s 
+dependency failed to start: container zeebe is unhealthy
