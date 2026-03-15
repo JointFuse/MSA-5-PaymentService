@@ -1,0 +1,20 @@
+| Название | Тип | Компоненты | Предусловия |
+|----------|-----|------------|-------------|
+| **1. Успешный платеж (APPROVED)** | E2E | debit-money, process-antifrod, contractor, notify-payment-succeed | Запустить процесс с variables: {“amount”: 5000, “risk_score”: 30, “fail_transfer”: false} |
+| **2. Отклонение по антифроду (REJECTED)** | E2E | debit-money, process-antifrod, block-payment, refund-money, notify-payment-rejected | Запустить процесс с variables: {“amount”: 5000, “risk_score”: 70} |
+| **3. Ручная проверка с одобрением** | E2E | debit-money, process-antifrod, userTask (ручная проверка), contractor, notify-payment-succeed | Запустить процесс с variables: {“amount”: 5000, “risk_score”: 90}. После активации user task завершить его с variables: {“applicationStatus”: “APPROVED”} |
+| **4. Ручная проверка с отклонением** | E2E | debit-money, process-antifrod, userTask, block-payment, refund-money, notify-payment-rejected | Запустить процесс с variables: {“amount”: 5000, “risk_score”: 90}. После активации user task завершить его с variables: {“applicationStatus”: “REJECTED”} |
+| **5. Таймаут ручной проверки** | E2E | debit-money, process-antifrod, timerEvent, contractor, notify-payment-succeed | Запустить процесс с variables: {“amount”: 5000, “risk_score”: 90}. Не завершать user task; дождаться срабатывания таймера (1 сек) |
+| **6. Ошибка списания NOT_ENOUGH_MONEY** | E2E | debit-money, notify-not-enough-money | Запустить процесс с variables: {“amount”: 15000} |
+| **7. Ошибка списания DEBIT_ERROR** | E2E | debit-money, notify-debit-error | Запустить процесс с variables: {“amount”: -100} |
+| **8. Ошибка перевода контрагенту** | E2E | debit-money, process-antifrod, contractor, refund-money, notify-transfer-error | Запустить процесс с variables: {“amount”: 5000, “risk_score”: 30, “fail_transfer”: true} |
+| **9. Ручная проверка с одобрением и ошибкой перевода** | E2E | debit-money, process-antifrod, userTask, contractor, refund-money, notify-transfer-error | Запустить процесс с variables: {“amount”: 5000, “risk_score”: 90, “fail_transfer”: true}. После активации user task завершить его с variables: {“applicationStatus”: “APPROVED”} |
+| **10. Успешный платёж с максимальной суммой** | E2E | debit-money, process-antifrod, contractor, notify-payment-succeed | Запустить процесс с variables: {“amount”: 10000, “risk_score”: 30, “fail_transfer”: false} |
+| **11. Интеграционный тест debit-money: успех** | Интеграционный | Воркер debit-money | Создать задание с переменной amount=5000; проверить, что задание завершено и установлена переменная debit_transaction_id |
+| **12. Интеграционный тест debit-money: NOT_ENOUGH_MONEY** | Интеграционный | Воркер debit-money | Создать задание с переменной amount=15000; проверить, что воркер вызывает raise_error с кодом “NOT_ENOUGH_MONEY” |
+| **13. Интеграционный тест debit-money: DEBIT_ERROR** | Интеграционный | Воркер debit-money | Создать задание с переменной amount=-100; проверить raise_error с кодом “DEBIT_ERROR” |
+| **14. Интеграционный тест process-antifrod** | Интеграционный | Воркер process-antifrod | Для каждого сценария: risk_score=30 → applicationStatus=“APPROVED”; risk_score=70 → “REJECTED”; risk_score=90 → “MANUAL_REQUESTED” |
+| **15. Интеграционный тест contractor: успех** | Интеграционный | Воркер contractor | Создать задание с переменной fail_transfer=false; проверить, что задание завершено и установлена переменная transfer_status=“COMPLETED” |
+| **16. Интеграционный тест contractor: TRANSFER_FAILED** | Интеграционный | Воркер contractor | Создать задание с переменной fail_transfer=true; проверить raise_error с кодом “TRANSFER_FAILED” |
+| **17. Интеграционный тест block-payment** | Интеграционный | Воркер block-payment | Создать задание; проверить, что после завершения установлены переменные blocked=true и block_reason |
+| **18. Интеграционный тест refund-money** | Интеграционный | Воркер refund-money | Создать задание с переменной amount=5000; проверить, что установлены refunded=true и refund_amount=5000 |

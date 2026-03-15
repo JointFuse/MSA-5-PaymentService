@@ -2,6 +2,12 @@
 <bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:zeebe="http://camunda.org/schema/zeebe/1.0" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:modeler="http://camunda.org/schema/modeler/1.0" id="Definitions_07wffel" targetNamespace="http://bpmn.io/schema/bpmn" exporter="Camunda Modeler" exporterVersion="5.44.0" modeler:executionPlatform="Camunda Cloud" modeler:executionPlatformVersion="8.8.0">
   <bpmn:process id="Process_0oqbnav" name="OrchestrPay" isExecutable="true">
     <bpmn:startEvent id="StartEvent_1" name="Пользователь оформил оплату">
+      <bpmn:extensionElements>
+        <zeebe:ioMapping>
+          <zeebe:input source="=amount" target="amount" />
+          <zeebe:output source="=amount" target="amount" />
+        </zeebe:ioMapping>
+      </bpmn:extensionElements>
       <bpmn:outgoing>Flow_11aw0rg</bpmn:outgoing>
     </bpmn:startEvent>
     <bpmn:sequenceFlow id="Flow_11aw0rg" sourceRef="StartEvent_1" targetRef="Activity_0v26vlw" />
@@ -33,6 +39,10 @@
     <bpmn:serviceTask id="Activity_0v26vlw" name="Списать деньги со счета пользователя">
       <bpmn:extensionElements>
         <zeebe:taskDefinition type="debit-money" />
+        <zeebe:ioMapping>
+          <zeebe:input source="=amount" target="amount" />
+          <zeebe:output source="=debit_transaction_id" target="debit_transaction_id" />
+        </zeebe:ioMapping>
       </bpmn:extensionElements>
       <bpmn:incoming>Flow_11aw0rg</bpmn:incoming>
       <bpmn:outgoing>Flow_1bv5cem</bpmn:outgoing>
@@ -40,6 +50,10 @@
     <bpmn:serviceTask id="Activity_0qsi7lg" name="Проверка антифрод">
       <bpmn:extensionElements>
         <zeebe:taskDefinition type="process-antifrod" />
+        <zeebe:ioMapping>
+          <zeebe:input source="=risk_score" target="risk_score" />
+          <zeebe:output source="=applicationStatus" target="applicationStatus" />
+        </zeebe:ioMapping>
       </bpmn:extensionElements>
       <bpmn:incoming>Flow_1bv5cem</bpmn:incoming>
       <bpmn:outgoing>Flow_0aovhdc</bpmn:outgoing>
@@ -65,6 +79,10 @@
     <bpmn:serviceTask id="Activity_1x8r49d" name="Блокировка платежа">
       <bpmn:extensionElements>
         <zeebe:taskDefinition type="block-payment" />
+        <zeebe:ioMapping>
+          <zeebe:output source="=blocked" target="blocked" />
+          <zeebe:output source="=block_reason" target="block_reason" />
+        </zeebe:ioMapping>
       </bpmn:extensionElements>
       <bpmn:incoming>Flow_1jly85q</bpmn:incoming>
       <bpmn:incoming>Flow_1d0kddy</bpmn:incoming>
@@ -77,6 +95,10 @@
     <bpmn:serviceTask id="Activity_0bzw2bs" name="Перевод денег на счет контрагента">
       <bpmn:extensionElements>
         <zeebe:taskDefinition type="contractor" />
+        <zeebe:ioMapping>
+          <zeebe:input source="=fail_transfer" target="fail_transfer" />
+          <zeebe:output source="=transfer_status" target="transfer_status" />
+        </zeebe:ioMapping>
       </bpmn:extensionElements>
       <bpmn:incoming>Flow_1l4ipx3</bpmn:incoming>
       <bpmn:incoming>Flow_140ab1e</bpmn:incoming>
@@ -108,6 +130,10 @@
     <bpmn:serviceTask id="Activity_0xqbzoi" name="Вернуть деньги на счет пользователя">
       <bpmn:extensionElements>
         <zeebe:taskDefinition type="refund-money" />
+        <zeebe:ioMapping>
+          <zeebe:output source="=refunded" target="refunded" />
+          <zeebe:output source="=refund_amount" target="refund_amount" />
+        </zeebe:ioMapping>
       </bpmn:extensionElements>
       <bpmn:incoming>Flow_1xqitbg</bpmn:incoming>
       <bpmn:outgoing>Flow_0lujxig</bpmn:outgoing>

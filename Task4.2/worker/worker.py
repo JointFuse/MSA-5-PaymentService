@@ -1,7 +1,7 @@
 import asyncio
 import os
 import logging
-from pyzeebe import ZeebeWorker, create_insecure_channel, JobController
+from pyzeebe import ZeebeWorker, create_insecure_channel, Job, JobController
 
 # Логирование
 logging.basicConfig(level=logging.INFO)
@@ -9,36 +9,38 @@ logger = logging.getLogger(__name__)
 
 ZEEBE_GATEWAY = os.getenv("ZEEBE_ADDRESS", "zeebe:26500")
 
-# Для локальной разработки приемлемо использовать insecure без TLS
-channel = create_insecure_channel(ZEEBE_GATEWAY)
-worker = ZeebeWorker(channel)
-
 # ----------------------------------------------------------------------
 # Обработчики
 # ----------------------------------------------------------------------
-@worker.task(task_type="debit-money")
-async def handle_debit_money(job: JobController):
+
+async def on_buiseness_error(exception: Exception, job: Job, job_controller: JobController) -> None:
+    """
+    on_error will be called when a task fails with an exception.
+    We can use the job_controller to set the status.
+    """
+    print(f"Handling exception: {exception}")
+    # Set the job status to error, which can be caught in the BPMN diagram
+    await job_controller.set_error_status(f"Failed to handle job {job.key}. Error: {str(exception)}", str(exception))
+
+async def handle_debit_money(job: Job):
     """Списание денег со счёта пользователя (тип: debit-money)"""
-    logger.info(f"Выполняется задача: {job.element_name} (ID: {job.element_id})")
+    logger.info(f"Выполняется задача: {job.type} (ID: {job.element_id})")
     amount = job.variables.get("amount", 0)
 
     # Имитация проверки баланса
     if amount > 10000:
         # Генерируем ошибку – активирует boundary event
-        await job.raise_error("NOT_ENOUGH_MONEY", "На счету недостаточно средств")
-        return
+        raise Exception("NOT_ENOUGH_MONEY")
     if amount < 0:
         # Другая ошибка (например, техническая) – активирует другой boundary event
-        await job.raise_error("DEBIT_ERROR", "Ошибка при списании")
-        return
+        raise Exception("DEBIT_ERROR")
 
     # Успешное списание – сохраняем идентификатор транзакции
-    await job.set_variables({"debit_transaction_id": "txn_12345"}).complete()
+    return {"debit_transaction_id": "txn_12345"}
 
-@worker.task(task_type="process-antifrod")
-async def handle_process_antifrod(job: JobController):
+async def handle_process_antifrod(job: Job):
     """Проверка антифрод (тип: process-antifrod)"""
-    logger.info(f"Выполняется задача: {job.element_name} (ID: {job.element_id})")
+    logger.info(f"Выполняется задача: {job.type} (ID: {job.element_id})")
     risk_score = job.variables.get("risk_score", 0)
 
     if risk_score > 80:
@@ -48,65 +50,72 @@ async def handle_process_antifrod(job: JobController):
     else:
         status = "APPROVED"
 
-    await job.set_variables({"applicationStatus": status}).complete()
+    return {"applicationStatus": status}
 
-@worker.task(task_type="block-payment")
-async def handle_block_payment(job: JobController):
+async def handle_block_payment(job: Job):
     """Блокировка платежа (тип: block-payment)"""
-    logger.info(f"Выполняется задача: {job.element_name} (ID: {job.element_id})")
-    await job.set_variables({"blocked": True, "block_reason": "antifraud"}).complete()
+    logger.info(f"Выполняется задача: {job.type} (ID: {job.element_id})")
+    return {"blocked": True, "block_reason": "antifraud"}
 
-@worker.task(task_type="contractor")
-async def handle_contractor_transfer(job: JobController):
+async def handle_contractor_transfer(job: Job):
     """Перевод денег контрагенту (тип: contractor)"""
-    logger.info(f"Выполняется задача: {job.element_name} (ID: {job.element_id})")
+    logger.info(f"Выполняется задача: {job.type} (ID: {job.element_id})")
     fail = job.variables.get("fail_transfer", False)
 
     if fail:
         # Генерируем ошибку перевода – активирует boundary event
-        await job.raise_error("TRANSFER_FAILED", "Ошибка при переводе контрагенту")
-        return
+        raise Exception("TRANSFER_FAILED")
 
-    await job.set_variables({"transfer_status": "COMPLETED"}).complete()
+    return {"transfer_status": "COMPLETED"}
 
-@worker.task(task_type="refund-money")
-async def handle_refund_money(job: JobController):
+async def handle_refund_money(job: Job):
     """Возврат денег пользователю (тип: refund-money) – используется в двух местах"""
-    logger.info(f"Выполняется задача: {job.element_name} (ID: {job.element_id})")
-    await job.set_variables({"refunded": True, "refund_amount": job.variables.get("amount")}).complete()
+    logger.info(f"Выполняется задача: {job.type} (ID: {job.element_id})")
+    return {"refunded": True, "refund_amount": job.variables.get("amount")}
 
-@worker.task(task_type="notify-debit-error")
-async def handle_notify_debit_error(job: JobController):
+async def handle_notify_debit_error(job: Job):
     """Уведомление об ошибке списания (тип: notify-debit-error)"""
-    logger.info(f"Выполняется задача: {job.element_name} (ID: {job.element_id}) – отправка уведомления об ошибке списания")
-    await job.complete()
+    logger.info(f"Выполняется задача: {job.type} (ID: {job.element_id}) – отправка уведомления об ошибке списания")
+    return
 
-@worker.task(task_type="notify-not-enough-money")
-async def handle_notify_not_enough_money(job: JobController):
+async def handle_notify_not_enough_money(job: Job):
     """Уведомление о недостатке средств (тип: notify-not-enough-money)"""
-    logger.info(f"Выполняется задача: {job.element_name} (ID: {job.element_id}) – отправка уведомления о недостатке средств")
-    await job.complete()
+    logger.info(f"Выполняется задача: {job.type} (ID: {job.element_id}) – отправка уведомления о недостатке средств")
+    return
 
-@worker.task(task_type="notify-payment-succeed")
-async def handle_notify_payment_succeed(job: JobController):
+async def handle_notify_payment_succeed(job: Job):
     """Уведомление об успешном платеже (тип: notify-payment-succeed)"""
-    logger.info(f"Выполняется задача: {job.element_name} (ID: {job.element_id}) – платеж успешно завершён")
-    await job.complete()
+    logger.info(f"Выполняется задача: {job.type} (ID: {job.element_id}) – платеж успешно завершён")
+    return
 
-@worker.task(task_type="notify-payment-rejected")
-async def handle_notify_payment_rejected(job: JobController):
+async def handle_notify_payment_rejected(job: Job):
     """Уведомление об отклонении платежа (тип: notify-payment-rejected)"""
-    logger.info(f"Выполняется задача: {job.element_name} (ID: {job.element_id}) – платеж отклонён")
-    await job.complete()
+    logger.info(f"Выполняется задача: {job.type} (ID: {job.element_id}) – платеж отклонён")
+    return
 
-@worker.task(task_type="notify-transfer-error")
-async def handle_notify_transfer_error(job: JobController):
+async def handle_notify_transfer_error(job: Job):
     """Уведомление об ошибке зачисления контрагенту (тип: notify-transfer-error)"""
-    logger.info(f"Выполняется задача: {job.element_name} (ID: {job.element_id}) – ошибка при переводе контрагенту")
-    await job.complete()
+    logger.info(f"Выполняется задача: {job.type} (ID: {job.element_id}) – ошибка при переводе контрагенту")
+    return
 
 async def main():
-    await asyncio.Event().wait()
+    channel = create_insecure_channel(ZEEBE_GATEWAY)
+    worker = ZeebeWorker(channel)
+
+    # Регистрируем задачи вручную
+    worker.task(task_type="debit-money", exception_handler=on_buiseness_error)(handle_debit_money)
+    worker.task(task_type="process-antifrod")(handle_process_antifrod)
+    worker.task(task_type="block-payment")(handle_block_payment)
+    worker.task(task_type="contractor", exception_handler=on_buiseness_error)(handle_contractor_transfer)
+    worker.task(task_type="refund-money")(handle_refund_money)
+    worker.task(task_type="notify-debit-error")(handle_notify_debit_error)
+    worker.task(task_type="notify-not-enough-money")(handle_notify_not_enough_money)
+    worker.task(task_type="notify-payment-succeed")(handle_notify_payment_succeed)
+    worker.task(task_type="notify-payment-rejected")(handle_notify_payment_rejected)
+    worker.task(task_type="notify-transfer-error")(handle_notify_transfer_error)
+
+    logger.info("Воркер запущен, ожидание задач...")
+    await worker.work()
 
 if __name__ == "__main__":
     asyncio.run(main())
